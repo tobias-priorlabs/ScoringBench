@@ -15,7 +15,7 @@ from typing import Callable
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import KFold
+from .splits import split_indices
 import torch
 
 from . import config as cfg
@@ -94,16 +94,10 @@ def run_benchmark(
             for repeat in range(n_repeats_cv):
                 repeat_seed = seed + repeat
 
-                # KFold on the FULL dataset — test indices cover all of X across folds
-                kf = KFold(n_splits=n_folds, shuffle=True, random_state=repeat_seed)
-                splits = list(kf.split(X))
-
-                # Cap train and test per fold so total ≈ sample_size
-                train_cap = (
-                    int(effective_sample_size * (n_folds - 1) / n_folds)
-                    if effective_sample_size else 0
+                splits = split_indices(
+                    len(X), n_folds=n_folds, seed=repeat_seed,
+                    sample_size=effective_sample_size,
                 )
-                test_cap = (effective_sample_size // n_folds) if effective_sample_size else 0
 
                 for fold_idx in range(n_folds):
                     # Global fold key encodes both repeat and fold
@@ -155,17 +149,6 @@ def run_benchmark(
                               f"running {', '.join(sorted(models_to_run.keys()))}")
 
                     train_idx, test_idx = splits[fold_idx]
-
-                    # Subsample training set per (repeat, fold) for diversity —
-                    # each gets a fresh random subset of the full training split.
-                    if train_cap and len(train_idx) > train_cap:
-                        rng_fold = np.random.default_rng(repeat_seed * 10007 + fold_idx)
-                        train_idx = rng_fold.choice(train_idx, size=train_cap, replace=False)
-
-                    # Cap test set to keep evaluation cost bounded
-                    if test_cap and len(test_idx) > test_cap:
-                        rng_test = np.random.default_rng(repeat_seed * 10007 + fold_idx + 1)
-                        test_idx = rng_test.choice(test_idx, size=test_cap, replace=False)
 
                     print(f"\n  {fold_label}  "
                           f"[{len(train_idx)} train / {len(test_idx)} test]", flush=True)

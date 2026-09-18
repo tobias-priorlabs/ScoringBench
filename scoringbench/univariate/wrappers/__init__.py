@@ -56,20 +56,21 @@ _OPTIONAL = [
     ("LimiXWrapper", "limix"),
     ("MitraFinetuneWrapper", "mitra_finetune_wrapper"),
 ]
-for _name, _mod in _OPTIONAL:
-    try:
-        _m = __import__(
-            f"scoringbench.univariate.wrappers.{_mod}", fromlist=[_name]
-        )
-        globals()[_name] = getattr(_m, _name)
-    except Exception:
-        globals()[_name] = None
+def __getattr__(name):
+    import importlib
 
-# Pure-python helper (no heavy deps): resolve the Mitra-2 checkpoint directory.
-try:
-    from .mitra_finetune_wrapper import resolve_mitra2_checkpoint  # noqa: F401
-except Exception:
-    resolve_mitra2_checkpoint = None  # type: ignore[assignment]
+    modules = dict(_OPTIONAL)
+    if name == "resolve_mitra2_checkpoint":
+        modules[name] = "mitra_finetune_wrapper"
+    if name not in modules:
+        raise AttributeError(name)
+    try:
+        value = getattr(importlib.import_module(f"{__name__}.{modules[name]}"), name)
+    except ImportError:
+        value = None
+    globals()[name] = value
+    return value
+
 
 __all__ = [
     "CausiloWrapper",
