@@ -1,11 +1,14 @@
-"""ScoringBench (univariate) — 1-D targets on a joint-grid representation.
+"""ScoringBench univariate modules, loaded only when requested."""
+import importlib
 
-Everything that existed at the old ``scoringbench`` top level now lives here.
-The eager re-exports below preserve the previous behaviour so that
-``scoringbench.univariate.metrics`` etc. resolve exactly as
-``scoringbench.metrics`` used to.
-"""
-from . import config, datasets, wrappers, models, metrics, cv, runner, results, utils
 from ..version import __version__
 
 __all__ = ["config", "datasets", "wrappers", "models", "metrics", "cv", "runner", "results", "utils", "__version__"]
+
+
+def __getattr__(name):
+    if name not in __all__:
+        raise AttributeError(name)
+    value = importlib.import_module(f"{__name__}.{name}")
+    globals()[name] = value
+    return value
